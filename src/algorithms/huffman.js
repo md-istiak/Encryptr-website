@@ -1,102 +1,127 @@
 // src/algorithms/huffman.js
 
-// -----------------------------
-// Build Huffman Tree
-// -----------------------------
+// =========================================================
+// BUILD HUFFMAN TREE
+// =========================================================
+
 export function buildHuffmanTree(text) {
   if (!text) {
-    throw new Error("Input cannot be empty.");
+    return null;
   }
 
-  const frequency = {};
+  // Calculate character frequencies
+  const frequencies = {};
 
   for (const char of text) {
-    frequency[char] = (frequency[char] || 0) + 1;
+    frequencies[char] = (frequencies[char] || 0) + 1;
   }
 
-  let nodes = Object.entries(frequency).map(([char, freq]) => ({
+  // Create initial nodes
+  let nodes = Object.entries(frequencies).map(([char, freq]) => ({
     char,
     freq,
     left: null,
     right: null,
   }));
 
-  // Special case: input contains only one unique character
+  // Special case: only one unique character
   if (nodes.length === 1) {
-    return nodes[0];
+    const root = nodes[0];
+
+    return {
+      root,
+      codes: {
+        [root.char]: "0",
+      },
+      frequencies,
+    };
   }
 
+  // Build tree
   while (nodes.length > 1) {
     nodes.sort((a, b) => a.freq - b.freq);
 
     const left = nodes.shift();
     const right = nodes.shift();
 
-    nodes.push({
+    const parent = {
       char: null,
       freq: left.freq + right.freq,
       left,
       right,
-    });
+    };
+
+    nodes.push(parent);
   }
 
-  return nodes[0];
+  const root = nodes[0];
+
+  // Generate codes
+  const codes = {};
+
+  function generateCodes(node, prefix = "") {
+    if (!node) return;
+
+    // Leaf node
+    if (node.char !== null) {
+      codes[node.char] = prefix || "0";
+      return;
+    }
+
+    generateCodes(node.left, prefix + "0");
+    generateCodes(node.right, prefix + "1");
+  }
+
+  generateCodes(root);
+
+  return {
+    root,
+    codes,
+    frequencies,
+  };
 }
 
-// -----------------------------
-// Generate Huffman Codes
-// -----------------------------
-function generateCodes(node, prefix = "", codes = {}) {
-  if (!node) {
-    return codes;
-  }
 
-  // Leaf node
-  if (node.char !== null) {
-    codes[node.char] = prefix || "0";
-    return codes;
-  }
+// =========================================================
+// HUFFMAN ENCODE
+// =========================================================
 
-  generateCodes(node.left, prefix + "0", codes);
-  generateCodes(node.right, prefix + "1", codes);
-
-  return codes;
-}
-
-// -----------------------------
-// Encode using Huffman
-// -----------------------------
-export function encodeHuffman(text) {
+export function encodeHuffman(text, codes) {
   if (!text) {
-    throw new Error("Input cannot be empty.");
+    return "";
   }
 
-  const tree = buildHuffmanTree(text);
-  const codes = generateCodes(tree);
+  if (!codes) {
+    throw new Error("Huffman codes are missing.");
+  }
 
   let encoded = "";
 
   for (const char of text) {
+    if (codes[char] === undefined) {
+      throw new Error(
+        `No Huffman code exists for character: "${char}"`
+      );
+    }
+
     encoded += codes[char];
   }
 
-  return {
-    encoded,
-    codes,
-    tree,
-  };
+  return encoded;
 }
 
-// -----------------------------
-// Decode using Huffman
-// -----------------------------
+
+// =========================================================
+// HUFFMAN DECODE
+// =========================================================
+
 export function decodeHuffman(binary, codes) {
   if (!binary) {
-    throw new Error("Binary input cannot be empty.");
+    return "";
   }
 
   if (!codes || Object.keys(codes).length === 0) {
-    throw new Error("Huffman code table cannot be empty.");
+    return null;
   }
 
   const reverseCodes = {};
@@ -110,7 +135,7 @@ export function decodeHuffman(binary, codes) {
 
   for (const bit of binary) {
     if (bit !== "0" && bit !== "1") {
-      throw new Error("Encoded data must contain only 0 and 1.");
+      return null;
     }
 
     currentCode += bit;
@@ -121,19 +146,24 @@ export function decodeHuffman(binary, codes) {
     }
   }
 
+  // Leftover bits mean invalid/incomplete data
   if (currentCode !== "") {
-    throw new Error(
-      "Invalid Huffman data: the binary input does not match the supplied code table."
-    );
+    return null;
   }
 
   return decoded;
 }
 
-// -----------------------------
-// Parse manually entered table
-// -----------------------------
+
+// =========================================================
+// PARSE MANUAL CODE TABLE
+// =========================================================
+
 export function parseCodeTable(text) {
+  if (!text || !text.trim()) {
+    return null;
+  }
+
   const codes = {};
 
   const lines = text
@@ -145,24 +175,26 @@ export function parseCodeTable(text) {
     const separatorIndex = line.indexOf(":");
 
     if (separatorIndex === -1) {
-      throw new Error(
-        `Invalid code table line: "${line}". Use the format: character: code`
-      );
+      return null;
     }
 
-    let char = line.slice(0, separatorIndex).trim();
-    const code = line.slice(separatorIndex + 1).trim();
+    let char = line
+      .slice(0, separatorIndex)
+      .trim();
 
-    if (!char) {
-      throw new Error("A character is missing from the code table.");
+    const code = line
+      .slice(separatorIndex + 1)
+      .trim();
+
+    if (!char || !code) {
+      return null;
     }
 
-    if (!code || !/^[01]+$/.test(code)) {
-      throw new Error(
-        `Invalid Huffman code for "${char}". Codes must contain only 0 and 1.`
-      );
+    if (!/^[01]+$/.test(code)) {
+      return null;
     }
 
+    // SPACE represents actual space
     if (char === "SPACE") {
       char = " ";
     }
@@ -170,20 +202,26 @@ export function parseCodeTable(text) {
     codes[char] = code;
   }
 
-  if (Object.keys(codes).length === 0) {
-    throw new Error("Please enter a Huffman code table.");
-  }
-
-  return codes;
+  return Object.keys(codes).length > 0
+    ? codes
+    : null;
 }
 
-// -----------------------------
-// Format code table for display
-// -----------------------------
+
+// =========================================================
+// FORMAT CODE TABLE
+// =========================================================
+
 export function formatCodeTable(codes) {
+  if (!codes) {
+    return "";
+  }
+
   return Object.entries(codes)
     .map(([char, code]) => {
-      const displayChar = char === " " ? "SPACE" : char;
+      const displayChar =
+        char === " " ? "SPACE" : char;
+
       return `${displayChar}: ${code}`;
     })
     .join("\n");
