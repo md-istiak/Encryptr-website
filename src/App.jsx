@@ -1,17 +1,253 @@
 import { useState } from "react";
 import "./App.css";
 
-import {
-  buildHuffmanTree,
-  encodeHuffman,
-  decodeHuffman,
-  parseCodeTable,
-  formatCodeTable,
-} from "./algorithms/huffman";
-
 /* =========================================================
    HUFFMAN FUNCTIONS
    ========================================================= */
+
+function buildHuffmanTree(text) {
+  if (!text) return null;
+
+  const frequencies = {};
+
+  for (const char of text) {
+    frequencies[char] = (frequencies[char] || 0) + 1;
+  }
+
+  let nodes = Object.entries(frequencies).map(
+    ([char, frequency]) => ({
+      char,
+      frequency,
+      left: null,
+      right: null,
+    })
+  );
+
+  // Only one unique character
+  if (nodes.length === 1) {
+    const root = {
+      char: null,
+      frequency: nodes[0].frequency,
+      left: nodes[0],
+      right: null,
+    };
+
+    return {
+      root,
+      frequencies,
+      codes: {
+        [nodes[0].char]: "0",
+      },
+    };
+  }
+
+  while (nodes.length > 1) {
+    nodes.sort((a, b) => a.frequency - b.frequency);
+
+    const left = nodes.shift();
+    const right = nodes.shift();
+
+    nodes.push({
+      char: null,
+      frequency: left.frequency + right.frequency,
+      left,
+      right,
+    });
+  }
+
+  const root = nodes[0];
+  const codes = {};
+
+  function generateCodes(node, code) {
+    if (!node) return;
+
+    if (node.char !== null) {
+      codes[node.char] = code;
+      return;
+    }
+
+    generateCodes(node.left, code + "0");
+    generateCodes(node.right, code + "1");
+  }
+
+  generateCodes(root, "");
+
+  return {
+    root,
+    frequencies,
+    codes,
+  };
+}
+
+
+function encodeHuffman(text, codes) {
+  return [...text]
+    .map((char) => codes[char])
+    .join("");
+}
+
+
+function decodeHuffman(binary, codes) {
+  const reverseCodes = {};
+
+  for (const [char, code] of Object.entries(codes)) {
+    reverseCodes[code] = char;
+  }
+
+  let current = "";
+  let result = "";
+
+  for (const bit of binary) {
+    if (bit !== "0" && bit !== "1") {
+      return null;
+    }
+
+    current += bit;
+
+    if (reverseCodes[current] !== undefined) {
+      result += reverseCodes[current];
+      current = "";
+    }
+  }
+
+  // Incomplete code at the end
+  if (current !== "") {
+    return null;
+  }
+
+  return result;
+}
+
+
+/* =========================================================
+   CODE TABLE PARSER
+   ========================================================= */
+
+function parseCodeTable(text) {
+  const codes = {};
+
+  const lines = text.split("\n");
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (!trimmed) continue;
+
+    const separator = trimmed.indexOf(":");
+
+    if (separator === -1) {
+      return null;
+    }
+
+    let char = trimmed.slice(0, separator).trim();
+    const code = trimmed.slice(separator + 1).trim();
+
+    if (char === "SPACE") {
+      char = " ";
+    }
+
+    if (!char || !/^[01]+$/.test(code)) {
+      return null;
+    }
+
+    codes[char] = code;
+  }
+
+  return Object.keys(codes).length > 0
+    ? codes
+    : null;
+}
+
+
+/* =========================================================
+   CODE TABLE FORMATTER
+   ========================================================= */
+
+function formatCodeTable(codes) {
+  return Object.entries(codes)
+    .map(([char, code]) => {
+      const displayChar =
+        char === " " ? "SPACE" : char;
+
+      return `${displayChar}: ${code}`;
+    })
+    .join("\n");
+}
+
+
+/* =========================================================
+   HUFFMAN TREE
+   ========================================================= */
+
+function HuffmanTree({ node }) {
+  if (!node) return null;
+
+  const isLeaf = node.char !== null;
+
+  return (
+    <div className="tree-node">
+
+      <div className={`tree-box ${isLeaf ? "leaf" : ""}`}>
+
+        {isLeaf ? (
+          <>
+            <span className="tree-character">
+              {node.char === " "
+                ? "SPACE"
+                : node.char}
+            </span>
+
+            <span className="tree-frequency">
+              {node.frequency}
+            </span>
+          </>
+        ) : (
+          <span className="tree-frequency">
+            {node.frequency}
+          </span>
+        )}
+
+      </div>
+
+
+      {!isLeaf && (
+        <div className="tree-children">
+
+          {node.left && (
+            <div className="tree-branch">
+
+              <span className="branch-label">
+                0
+              </span>
+
+              <HuffmanTree
+                node={node.left}
+              />
+
+            </div>
+          )}
+
+
+          {node.right && (
+            <div className="tree-branch">
+
+              <span className="branch-label">
+                1
+              </span>
+
+              <HuffmanTree
+                node={node.right}
+              />
+
+            </div>
+          )}
+
+        </div>
+      )}
+
+    </div>
+  );
+}
 
 
 /* =========================================================
