@@ -882,6 +882,7 @@ textarea:focus {
 
 .tree-branch {
   position: relative;
+  border-color: var(--border);
 
   display: flex;
   flex-direction: column;
