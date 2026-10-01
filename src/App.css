@@ -66,6 +66,7 @@ button {
    ========================================================= */
 
 .app {
+  width: 100%;
   min-height: 100vh;
 }
 
@@ -125,7 +126,7 @@ button {
 
 .brand h1 {
   font-size: 19px;
-
+  color: var(--text);
   line-height: 1.1;
 }
 
