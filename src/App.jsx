@@ -2,7 +2,7 @@ import { useState } from "react";
 import "./App.css";
 
 /* =========================================================
-   HUFFMAN FUNCTIONS
+   HUFFMAN ENCODING
    ========================================================= */
 
 function buildHuffmanTree(text) {
@@ -14,20 +14,30 @@ function buildHuffmanTree(text) {
     frequencies[char] = (frequencies[char] || 0) + 1;
   }
 
-  let nodes = Object.entries(frequencies).map(([char, frequency]) => ({
-    char,
-    frequency,
-    left: null,
-    right: null,
-  }));
+  let nodes = Object.entries(frequencies).map(
+    ([char, frequency]) => ({
+      char,
+      frequency,
+      left: null,
+      right: null,
+    })
+  );
 
+  // Special case: only one unique character
   if (nodes.length === 1) {
+    const root = {
+      char: null,
+      frequency: nodes[0].frequency,
+      left: nodes[0],
+      right: null,
+    };
+
     return {
-      root: nodes[0],
+      root,
+      frequencies,
       codes: {
         [nodes[0].char]: "0",
       },
-      frequencies,
     };
   }
 
@@ -48,11 +58,11 @@ function buildHuffmanTree(text) {
   const root = nodes[0];
   const codes = {};
 
-  function generateCodes(node, code = "") {
+  function generateCodes(node, code) {
     if (!node) return;
 
     if (node.char !== null) {
-      codes[node.char] = code || "0";
+      codes[node.char] = code;
       return;
     }
 
@@ -60,12 +70,12 @@ function buildHuffmanTree(text) {
     generateCodes(node.right, code + "1");
   }
 
-  generateCodes(root);
+  generateCodes(root, "");
 
   return {
     root,
-    codes,
     frequencies,
+    codes,
   };
 }
 
@@ -76,8 +86,6 @@ function encodeHuffman(text, codes) {
 }
 
 function decodeHuffman(binary, codes) {
-  if (!binary) return "";
-
   const reverseCodes = {};
 
   for (const [char, code] of Object.entries(codes)) {
@@ -118,86 +126,70 @@ function HuffmanTree({ node }) {
   const isLeaf = node.char !== null;
 
   return (
-    <div className="tree-node-wrapper">
-
-      <div className={`tree-node ${isLeaf ? "leaf" : "parent"}`}>
+    <div className="tree-node">
+      <div className={`tree-box ${isLeaf ? "leaf" : ""}`}>
         {isLeaf ? (
           <>
-            <strong>
+            <span className="tree-character">
               {node.char === " " ? "SPACE" : node.char}
-            </strong>
+            </span>
 
-            <span>{node.frequency}</span>
+            <span className="tree-frequency">
+              {node.frequency}
+            </span>
           </>
         ) : (
-          <strong>{node.frequency}</strong>
+          <span className="tree-frequency">
+            {node.frequency}
+          </span>
         )}
       </div>
 
       {!isLeaf && (
         <div className="tree-children">
+          {node.left && (
+            <div className="tree-branch">
+              <span className="branch-label">0</span>
 
-          <div className="tree-branch">
-            <span className="branch-label">0</span>
+              <HuffmanTree node={node.left} />
+            </div>
+          )}
 
-            <HuffmanTree node={node.left} />
-          </div>
+          {node.right && (
+            <div className="tree-branch">
+              <span className="branch-label">1</span>
 
-          <div className="tree-branch">
-            <span className="branch-label">1</span>
-
-            <HuffmanTree node={node.right} />
-          </div>
-
+              <HuffmanTree node={node.right} />
+            </div>
+          )}
         </div>
       )}
-
     </div>
   );
 }
 
 
 /* =========================================================
-   ALGORITHM PLACEHOLDER
+   PLACEHOLDER
    ========================================================= */
 
 function AlgorithmPlaceholder({ name }) {
   return (
     <div className="placeholder">
-
       <div className="placeholder-icon">
-        {name}
+        {name.charAt(name.length - 1)}
       </div>
 
       <h2>{name}</h2>
 
       <p>
-        This algorithm is ready for implementation.
+        This algorithm is ready to be implemented.
+        The interface and styling are already prepared.
       </p>
 
-      <div className="placeholder-grid">
-
-        <div>
-          <span>STATUS</span>
-          <strong>READY</strong>
-        </div>
-
-        <div>
-          <span>ENCODE</span>
-          <strong>PLACEHOLDER</strong>
-        </div>
-
-        <div>
-          <span>DECODE</span>
-          <strong>PLACEHOLDER</strong>
-        </div>
-
-      </div>
-
-      <div className="coming-soon">
-        Algorithm logic will be added here.
-      </div>
-
+      <span className="placeholder-badge">
+        READY / PLACEHOLDER
+      </span>
     </div>
   );
 }
@@ -207,19 +199,113 @@ function AlgorithmPlaceholder({ name }) {
    MAIN APP
    ========================================================= */
 
-function App() {
-
+export default function App() {
   const [algorithm, setAlgorithm] = useState("Huffman");
-
   const [mode, setMode] = useState("encode");
 
   const [input, setInput] = useState("");
-
   const [output, setOutput] = useState("");
 
   const [huffmanData, setHuffmanData] = useState(null);
 
   const [error, setError] = useState("");
+
+
+  /* =======================================================
+     PROCESS
+     ======================================================= */
+
+  function handleProcess() {
+    setError("");
+
+    if (!input.trim()) {
+      setOutput("");
+      setError("Please enter some text first.");
+      return;
+    }
+
+    if (algorithm !== "Huffman") {
+      return;
+    }
+
+    /* ENCODE */
+
+    if (mode === "encode") {
+      const data = buildHuffmanTree(input);
+
+      if (!data) {
+        setError("Unable to build Huffman tree.");
+        return;
+      }
+
+      const encoded = encodeHuffman(
+        input,
+        data.codes
+      );
+
+      setHuffmanData(data);
+      setOutput(encoded);
+
+      return;
+    }
+
+
+    /* DECODE */
+
+    if (!huffmanData) {
+      setError(
+        "No Huffman code table is available. Encode some text first."
+      );
+
+      return;
+    }
+
+    const decoded = decodeHuffman(
+      input.trim(),
+      huffmanData.codes
+    );
+
+    if (decoded === null) {
+      setError(
+        "Invalid Huffman data. Make sure the binary input is correct."
+      );
+
+      return;
+    }
+
+    setOutput(decoded);
+  }
+
+
+  /* =======================================================
+     CHANGE ALGORITHM
+     ======================================================= */
+
+  function handleAlgorithmChange(name) {
+    setAlgorithm(name);
+
+    setInput("");
+    setOutput("");
+    setError("");
+
+    if (name !== "Huffman") {
+      setHuffmanData(null);
+    }
+  }
+
+
+  /* =======================================================
+     CHANGE MODE
+     ======================================================= */
+
+  function handleModeChange(newMode) {
+    setMode(newMode);
+
+    setInput("");
+    setOutput("");
+    setError("");
+  }
+
 
   const algorithms = [
     "Huffman",
@@ -231,264 +317,95 @@ function App() {
   ];
 
 
-  /* =======================================================
-     HUFFMAN PROCESSING
-     ======================================================= */
-
-  const processHuffman = () => {
-
-    setError("");
-    setOutput("");
-
-    if (!input.trim()) {
-      setError("Please enter some input first.");
-      return;
-    }
-
-
-    /* ENCODE */
-
-    if (mode === "encode") {
-
-      const data = buildHuffmanTree(input);
-
-      const encoded = encodeHuffman(
-        input,
-        data.codes
-      );
-
-      setHuffmanData(data);
-
-      setOutput(encoded);
-
-      return;
-    }
-
-
-    /* DECODE */
-
-    if (mode === "decode") {
-
-      if (!huffmanData) {
-        setError(
-          "A Huffman code table is required for decoding."
-        );
-
-        return;
-      }
-
-      const decoded = decodeHuffman(
-        input,
-        huffmanData.codes
-      );
-
-      if (decoded === null) {
-
-        setError(
-          "Invalid Huffman binary data or incomplete code."
-        );
-
-        return;
-      }
-
-      setOutput(decoded);
-    }
-  };
-
-
-  /* =======================================================
-     CHANGE ALGORITHM
-     ======================================================= */
-
-  const changeAlgorithm = (name) => {
-
-    setAlgorithm(name);
-
-    setInput("");
-    setOutput("");
-    setError("");
-
-    if (name !== "Huffman") {
-      setHuffmanData(null);
-    }
-  };
-
-
   return (
     <div className="app">
 
-
       {/* =================================================
-          HEADER
-      ================================================= */}
+          SIDEBAR
+          ================================================= */}
 
-      <header className="topbar">
+      <aside className="sidebar">
 
         <div className="brand">
-
           <div className="brand-mark">
             E
           </div>
 
-          <div>
+          <div className="brand-text">
             <h1>Encryptr</h1>
-            <span>by Istiak</span>
+            <p>by Istiak</p>
           </div>
-
         </div>
 
 
-        <div className="status">
-          <span className="status-dot"></span>
-          SYSTEM READY
+        <div className="menu-title">
+          Algorithms
         </div>
 
-      </header>
+
+        <nav className="menu">
+          {algorithms.map((name) => (
+            <button
+              key={name}
+              className={
+                algorithm === name
+                  ? "active"
+                  : ""
+              }
+              onClick={() =>
+                handleAlgorithmChange(name)
+              }
+            >
+              {name}
+            </button>
+          ))}
+        </nav>
+
+      </aside>
 
 
       {/* =================================================
-          MAIN LAYOUT
-      ================================================= */}
-
-      <main className="main-layout">
-
-
-        {/* =================================================
-            SIDEBAR
-        ================================================= */}
-
-        <aside className="sidebar">
-
-          <div className="menu-title">
-            METHODS
-          </div>
-
-
-          <div className="menu">
-
-            {algorithms.map((item) => (
-
-              <button
-                key={item}
-                className={
-                  algorithm === item
-                    ? "menu-item active"
-                    : "menu-item"
-                }
-                onClick={() => changeAlgorithm(item)}
-              >
-
-                <span className="menu-letter">
-                  {item === "Huffman"
-                    ? "H"
-                    : item.replace("Algorithm ", "")}
-                </span>
-
-                <span>{item}</span>
-
-                {algorithm === item && (
-                  <span className="menu-arrow">
-                    →
-                  </span>
-                )}
-
-              </button>
-
-            ))}
-
-          </div>
-
-
-          <div className="sidebar-footer">
-
-            <span>ENCRYPTR</span>
-
-            <small>
-              Encoding laboratory
-            </small>
-
-          </div>
-
-        </aside>
-
-
-        {/* =================================================
-            CONTENT
-        ================================================= */}
-
-        <section className="content">
-
-
-          {/* =================================================
-              PAGE HEADER
+          MAIN CONTENT
           ================================================= */}
 
-          <div className="page-heading">
+      <main className="main-content">
+
+        <div className="main-inner">
+
+          {/* PAGE HEADER */}
+
+          <header className="page-header">
 
             <div>
-
-              <div className="eyebrow">
-                TEXT PROCESSING / {algorithm.toUpperCase()}
-              </div>
-
-              <h2>
-                {algorithm}
-              </h2>
+              <h2>{algorithm}</h2>
 
               <p>
-                Encode and decode data using the selected method.
+                Encode and decode your data using
+                the selected algorithm.
               </p>
-
             </div>
 
-
-            <div className="mode-switch">
-
-              <button
-                className={
-                  mode === "encode"
-                    ? "mode active"
-                    : "mode"
-                }
-                onClick={() => {
-                  setMode("encode");
-                  setOutput("");
-                  setError("");
-                }}
-              >
-                Encode
-              </button>
-
-              <button
-                className={
-                  mode === "decode"
-                    ? "mode active"
-                    : "mode"
-                }
-                onClick={() => {
-                  setMode("decode");
-                  setOutput("");
-                  setError("");
-                }}
-              >
-                Decode
-              </button>
-
-            </div>
-
-          </div>
+          </header>
 
 
           {/* =================================================
-              HUFFMAN
-          ================================================= */}
+              PLACEHOLDER ALGORITHMS
+              ================================================= */}
 
-          {algorithm === "Huffman" && (
+          {algorithm !== "Huffman" ? (
+
+            <AlgorithmPlaceholder
+              name={algorithm}
+            />
+
+          ) : (
 
             <>
+              {/* ===========================================
+                  ENCODE / DECODE WORKSPACE
+                  =========================================== */}
 
-              <div className="workspace">
-
+              <section className="workspace">
 
                 {/* INPUT */}
 
@@ -497,20 +414,50 @@ function App() {
                   <div className="panel-header">
 
                     <div>
-                      <span className="panel-label">
-                        INPUT
-                      </span>
+                      <div className="panel-title">
+                        Input
+                      </div>
 
-                      <h3>
+                      <div className="panel-subtitle">
                         {mode === "encode"
-                          ? "Original Text"
-                          : "Encoded Binary"}
-                      </h3>
+                          ? "Enter the text you want to encode."
+                          : "Enter Huffman binary data."
+                        }
+                      </div>
                     </div>
 
-                    <span className="panel-number">
-                      01
-                    </span>
+
+                    {/* MODE SWITCH */}
+
+                    <div className="mode-switch">
+
+                      <button
+                        className={
+                          mode === "encode"
+                            ? "active"
+                            : ""
+                        }
+                        onClick={() =>
+                          handleModeChange("encode")
+                        }
+                      >
+                        Encode
+                      </button>
+
+                      <button
+                        className={
+                          mode === "decode"
+                            ? "active"
+                            : ""
+                        }
+                        onClick={() =>
+                          handleModeChange("decode")
+                        }
+                      >
+                        Decode
+                      </button>
+
+                    </div>
 
                   </div>
 
@@ -522,32 +469,28 @@ function App() {
                     }
                     placeholder={
                       mode === "encode"
-                        ? "Enter text to encode..."
-                        : "Enter Huffman binary..."
+                        ? "Type or paste your text here..."
+                        : "Paste your Huffman binary here..."
                     }
                   />
-
-
-                  <div className="character-count">
-                    {input.length} characters
-                  </div>
 
                 </div>
 
 
-                {/* PROCESS */}
+                {/* PROCESS BUTTON */}
 
-                <div className="process-arrow">
-
-                  <div className="arrow-line"></div>
+                <div className="process-area">
 
                   <button
                     className="process-button"
-                    onClick={processHuffman}
+                    onClick={handleProcess}
+                    title={
+                      mode === "encode"
+                        ? "Encode"
+                        : "Decode"
+                    }
                   >
-                    {mode === "encode"
-                      ? "ENCODE"
-                      : "DECODE"}
+                    →
                   </button>
 
                 </div>
@@ -555,219 +498,204 @@ function App() {
 
                 {/* OUTPUT */}
 
-                <div className="panel output-panel">
+                <div className="panel">
 
                   <div className="panel-header">
 
                     <div>
-                      <span className="panel-label">
-                        OUTPUT
-                      </span>
+                      <div className="panel-title">
+                        Output
+                      </div>
 
-                      <h3>
+                      <div className="panel-subtitle">
                         {mode === "encode"
-                          ? "Binary Data"
-                          : "Decoded Text"}
-                      </h3>
+                          ? "Generated Huffman binary."
+                          : "Decoded text."
+                        }
+                      </div>
                     </div>
-
-                    <span className="panel-number">
-                      02
-                    </span>
 
                   </div>
 
 
-                  <div className="output-box">
-
-                    {output ? (
-                      output
-                    ) : (
-                      <span className="empty">
-                        Output will appear here...
-                      </span>
-                    )}
-
-                  </div>
-
-
-                  {output && (
-                    <div className="output-info">
-                      {output.length}{" "}
-                      {mode === "encode"
-                        ? "bits"
-                        : "characters"}
-                    </div>
-                  )}
+                  <textarea
+                    value={output}
+                    readOnly
+                    placeholder="Your result will appear here..."
+                  />
 
                 </div>
 
-              </div>
+              </section>
 
 
               {/* ERROR */}
 
               {error && (
-                <div className="error-box">
-                  ⚠ {error}
+                <div className="error">
+                  {error}
                 </div>
               )}
 
 
-              {/* =================================================
-                  HUFFMAN DETAILS
-              ================================================= */}
-
-              {huffmanData && mode === "encode" && (
-
-                <>
-
-                  <section className="section-card">
-
-                    <div className="section-heading">
-
-                      <div>
-                        <span className="eyebrow">
-                          ANALYSIS
-                        </span>
-
-                        <h2>
-                          Character Codes
-                        </h2>
-                      </div>
-
-                      <span className="badge">
-                        HUFFMAN
-                      </span>
-
-                    </div>
-
-
-                    <div className="code-grid">
-
-                      {Object.entries(
-                        huffmanData.frequencies
-                      ).map(
-                        ([char, frequency]) => (
-
-                          <div
-                            className="code-row"
-                            key={char}
-                          >
-
-                            <div className="char-box">
-                              {char === " "
-                                ? "SPACE"
-                                : char}
-                            </div>
-
-                            <div className="frequency">
-                              <span>FREQUENCY</span>
-                              <strong>
-                                {frequency}
-                              </strong>
-                            </div>
-
-                            <div className="binary-code">
-                              <span>CODE</span>
-                              <strong>
-                                {huffmanData.codes[char]}
-                              </strong>
-                            </div>
-
-                          </div>
-
-                        )
-                      )}
-
-                    </div>
-
-                  </section>
-
-
-                  {/* TREE */}
-
-                  <section className="section-card">
-
-                    <div className="section-heading">
-
-                      <div>
-                        <span className="eyebrow">
-                          VISUALIZATION
-                        </span>
-
-                        <h2>
-                          Huffman Tree
-                        </h2>
-                      </div>
-
-                      <div className="tree-legend">
-                        <span>0 = LEFT</span>
-                        <span>1 = RIGHT</span>
-                      </div>
-
-                    </div>
-
-
-                    <div className="tree-container">
-
-                      <HuffmanTree
-                        node={huffmanData.root}
-                      />
-
-                    </div>
-
-                  </section>
-
-                </>
-
-              )}
-
-
-              {/* INFO */}
+              {/* ===========================================
+                  INFORMATION
+                  =========================================== */}
 
               <section className="info-grid">
 
-                <div>
-                  <span>ALGORITHM</span>
-                  <strong>Huffman Coding</strong>
+                <div className="info-card">
+                  <h3>Algorithm</h3>
+
+                  <p>
+                    Huffman Coding
+                  </p>
                 </div>
 
-                <div>
-                  <span>TYPE</span>
-                  <strong>Lossless</strong>
+
+                <div className="info-card">
+                  <h3>Mode</h3>
+
+                  <p>
+                    {mode === "encode"
+                      ? "Encoding"
+                      : "Decoding"}
+                  </p>
                 </div>
 
-                <div>
-                  <span>OUTPUT</span>
-                  <strong>Binary</strong>
+
+                <div className="info-card">
+                  <h3>Characters</h3>
+
+                  <p>
+                    {input.length}
+                  </p>
                 </div>
 
               </section>
 
+
+              {/* ===========================================
+                  CODE TABLE
+                  =========================================== */}
+
+              {huffmanData && (
+                <section className="section">
+
+                  <div className="section-header">
+
+                    <div>
+                      <h2>
+                        Huffman Code Table
+                      </h2>
+
+                      <p>
+                        Character frequencies and
+                        generated binary codes.
+                      </p>
+                    </div>
+
+                  </div>
+
+
+                  <div className="table-container">
+
+                    <table className="code-table">
+
+                      <thead>
+                        <tr>
+                          <th>Character</th>
+                          <th>Frequency</th>
+                          <th>Code</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+
+                        {Object.entries(
+                          huffmanData.codes
+                        ).map(
+                          ([char, code]) => (
+                            <tr key={char}>
+
+                              <td>
+                                {char === " "
+                                  ? "SPACE"
+                                  : char}
+                              </td>
+
+                              <td>
+                                {
+                                  huffmanData
+                                    .frequencies[
+                                    char
+                                  ]
+                                }
+                              </td>
+
+                              <td>
+                                <span className="code">
+                                  {code}
+                                </span>
+                              </td>
+
+                            </tr>
+                          )
+                        )}
+
+                      </tbody>
+
+                    </table>
+
+                  </div>
+
+                </section>
+              )}
+
+
+              {/* ===========================================
+                  HUFFMAN TREE
+                  =========================================== */}
+
+              {huffmanData && (
+                <section className="section">
+
+                  <div className="section-header">
+
+                    <div>
+                      <h2>
+                        Huffman Tree
+                      </h2>
+
+                      <p>
+                        Visual representation of the
+                        generated Huffman structure.
+                      </p>
+                    </div>
+
+                  </div>
+
+
+                  <div className="tree-container">
+
+                    <div className="huffman-tree">
+                      <HuffmanTree
+                        node={huffmanData.root}
+                      />
+                    </div>
+
+                  </div>
+
+                </section>
+              )}
+
             </>
-
           )}
 
-
-          {/* =================================================
-              PLACEHOLDER ALGORITHMS
-          ================================================= */}
-
-          {algorithm !== "Huffman" && (
-
-            <AlgorithmPlaceholder
-              name={algorithm}
-            />
-
-          )}
-
-        </section>
+        </div>
 
       </main>
 
     </div>
   );
 }
-
-export default App;
