@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useLayoutEffect } from "react";
 import "./App.css";
 
 /* =========================================================
@@ -14,14 +14,12 @@ function buildHuffmanTree(text) {
     frequencies[char] = (frequencies[char] || 0) + 1;
   }
 
-  let nodes = Object.entries(frequencies).map(
-    ([char, frequency]) => ({
-      char,
-      frequency,
-      left: null,
-      right: null,
-    })
-  );
+  let nodes = Object.entries(frequencies).map(([char, frequency]) => ({
+    char,
+    frequency,
+    left: null,
+    right: null,
+  }));
 
   // Only one unique character
   if (nodes.length === 1) {
@@ -79,13 +77,9 @@ function buildHuffmanTree(text) {
   };
 }
 
-
 function encodeHuffman(text, codes) {
-  return [...text]
-    .map((char) => codes[char])
-    .join("");
+  return [...text].map((char) => codes[char]).join("");
 }
-
 
 function decodeHuffman(binary, codes) {
   const reverseCodes = {};
@@ -110,7 +104,6 @@ function decodeHuffman(binary, codes) {
     }
   }
 
-  // Incomplete code at the end
   if (current !== "") {
     return null;
   }
@@ -118,78 +111,172 @@ function decodeHuffman(binary, codes) {
   return result;
 }
 
-
 /* =========================================================
-   CODE TABLE PARSER
+   CODE TABLE PARSER & FORMATTER
    ========================================================= */
 
 function parseCodeTable(text) {
   const codes = {};
-
   const lines = text.split("\n");
 
   for (const line of lines) {
     const trimmed = line.trim();
-
     if (!trimmed) continue;
 
     const separator = trimmed.indexOf(":");
-
-    if (separator === -1) {
-      return null;
-    }
+    if (separator === -1) return null;
 
     let char = trimmed.slice(0, separator).trim();
     const code = trimmed.slice(separator + 1).trim();
 
-    if (char === "SPACE") {
-      char = " ";
-    }
+    if (char === "SPACE") char = " ";
 
-    if (!char || !/^[01]+$/.test(code)) {
-      return null;
-    }
+    if (!char || !/^[01]+\$/.test(code)) return null;
 
     codes[char] = code;
   }
 
-  return Object.keys(codes).length > 0
-    ? codes
-    : null;
+  return Object.keys(codes).length > 0 ? codes : null;
 }
-
-
-/* =========================================================
-   CODE TABLE FORMATTER
-   ========================================================= */
 
 function formatCodeTable(codes) {
   return Object.entries(codes)
     .map(([char, code]) => {
-      const displayChar =
-        char === " " ? "SPACE" : char;
-
+      const displayChar = char === " " ? "SPACE" : char;
       return `${displayChar}: ${code}`;
     })
     .join("\n");
 }
 
-
 /* =========================================================
-   HUFFMAN TREE
+   HUFFMAN TREE VISUALIZER (SVG CONNECTOR ENGINE)
    ========================================================= */
 
-/* =========================================================
-   HUFFMAN TREE
-   ========================================================= */
+function HuffmanTreeVisualizer({ root }) {
+  const containerRef = useRef(null);
+  const [lines, setLines] = useState([]);
 
-function HuffmanTree({ node }) {
+  useLayoutEffect(() => {
+    if (!containerRef.current || !root) return;
+
+    const calculateLines = () => {
+      const newLines = [];
+      const containerRect = containerRef.current.getBoundingClientRect();
+
+      const parentElements =
+        containerRef.current.querySelectorAll("[data-node-id]");
+
+      parentElements.forEach((parentElement) => {
+        const parentId = parentElement.getAttribute("data-node-id");
+        const parentBox = parentElement.querySelector(":scope > .tree-box");
+
+        if (!parentBox) return;
+
+        const parentRect = parentBox.getBoundingClientRect();
+
+        const x1 = parentRect.left + parentRect.width / 2 - containerRect.left;
+        const y1 = parentRect.bottom - containerRect.top;
+
+        // Left child line calculation
+        const leftChild = parentElement.querySelector(
+          `:scope > .tree-children > .tree-branch-left > .tree-node`
+        );
+        if (leftChild) {
+          const leftBox = leftChild.querySelector(":scope > .tree-box");
+          if (leftBox) {
+            const leftRect = leftBox.getBoundingClientRect();
+            const x2 = leftRect.left + leftRect.width / 2 - containerRect.left;
+            const y2 = leftRect.top - containerRect.top;
+
+            newLines.push({
+              id: `${parentId}-left`,
+              x1,
+              y1,
+              x2,
+              y2,
+              label: "0",
+              midX: (x1 + x2) / 2,
+              midY: (y1 + y2) / 2,
+              type: "left",
+            });
+          }
+        }
+
+        // Right child line calculation
+        const rightChild = parentElement.querySelector(
+          `:scope > .tree-children > .tree-branch-right > .tree-node`
+        );
+        if (rightChild) {
+          const rightBox = rightChild.querySelector(":scope > .tree-box");
+          if (rightBox) {
+            const rightRect = rightBox.getBoundingClientRect();
+            const x2 = rightRect.left + rightRect.width / 2 - containerRect.left;
+            const y2 = rightRect.top - containerRect.top;
+
+            newLines.push({
+              id: `${parentId}-right`,
+              x1,
+              y1,
+              x2,
+              y2,
+              label: "1",
+              midX: (x1 + x2) / 2,
+              midY: (y1 + y2) / 2,
+              type: "right",
+            });
+          }
+        }
+      });
+
+      setLines(newLines);
+    };
+
+    calculateLines();
+
+    window.addEventListener("resize", calculateLines);
+    return () => window.removeEventListener("resize", calculateLines);
+  }, [root]);
+
+  return (
+    <div className="tree-visualizer-wrapper" ref={containerRef}>
+      <svg className="tree-svg-canvas">
+        {lines.map((line) => (
+          <g key={line.id}>
+            <line
+              x1={line.x1}
+              y1={line.y1}
+              x2={line.x2}
+              y2={line.y2}
+              className={`tree-connection-line ${line.type}`}
+            />
+            <foreignObject
+              x={line.midX - 11}
+              y={line.midY - 11}
+              width="22"
+              height="22"
+            >
+              <div className={`svg-branch-label ${line.type}`}>
+                {line.label}
+              </div>
+            </foreignObject>
+          </g>
+        ))}
+      </svg>
+
+      <div className="huffman-tree">
+        <HuffmanTreeNode node={root} id="root" />
+      </div>
+    </div>
+  );
+}
+
+function HuffmanTreeNode({ node, id }) {
   if (!node) return null;
 
   const isLeaf = node.char !== null;
 
   return (
-    <div className="tree-node">
+    <div className="tree-node" data-node-id={id}>
       <div className={`tree-box ${isLeaf ? "leaf" : "internal"}`}>
         {isLeaf ? (
           <>
@@ -206,16 +293,14 @@ function HuffmanTree({ node }) {
       {!isLeaf && (
         <div className="tree-children">
           {node.left && (
-            <div className="tree-branch branch-left">
-              <span className="branch-label">0</span>
-              <HuffmanTree node={node.left} />
+            <div className="tree-branch tree-branch-left">
+              <HuffmanTreeNode node={node.left} id={`${id}-L`} />
             </div>
           )}
 
           {node.right && (
-            <div className="tree-branch branch-right">
-              <span className="branch-label">1</span>
-              <HuffmanTree node={node.right} />
+            <div className="tree-branch tree-branch-right">
+              <HuffmanTreeNode node={node.right} id={`${id}-R`} />
             </div>
           )}
         </div>
@@ -231,163 +316,80 @@ function HuffmanTree({ node }) {
 function AlgorithmPlaceholder({ name }) {
   return (
     <div className="placeholder">
-
-      <div className="placeholder-icon">
-        {name.charAt(name.length - 1)}
-      </div>
-
+      <div className="placeholder-icon">{name.charAt(name.length - 1)}</div>
       <h2>{name}</h2>
-
       <p>
-        This algorithm is ready to be implemented.
-        The interface and styling are already prepared.
+        This algorithm is ready to be implemented. The interface and styling are
+        already prepared.
       </p>
-
-      <span className="placeholder-badge">
-        READY / PLACEHOLDER
-      </span>
-
+      <span className="placeholder-badge">READY / PLACEHOLDER</span>
     </div>
   );
 }
-
 
 /* =========================================================
    MAIN APP
    ========================================================= */
 
 export default function App() {
-
-  const [algorithm, setAlgorithm] =
-    useState("Huffman");
-
-  const [mode, setMode] =
-    useState("encode");
-
-  const [input, setInput] =
-    useState("");
-
-  const [output, setOutput] =
-    useState("");
-
-  const [codeTable, setCodeTable] =
-    useState("");
-
-  const [huffmanData, setHuffmanData] =
-    useState(null);
-
-  const [error, setError] =
-    useState("");
-
-
-  /* =======================================================
-     PROCESS ENCODE / DECODE
-     ======================================================= */
+  const [algorithm, setAlgorithm] = useState("Huffman");
+  const [mode, setMode] = useState("encode");
+  const [input, setInput] = useState("");
+  const [output, setOutput] = useState("");
+  const [codeTable, setCodeTable] = useState("");
+  const [huffmanData, setHuffmanData] = useState(null);
+  const [error, setError] = useState("");
 
   function handleProcess() {
-
     setError("");
 
-
-    /* ---------------- ENCODE ---------------- */
-
     if (mode === "encode") {
-
       if (!input.trim()) {
         setOutput("");
-        setError(
-          "Please enter some text first."
-        );
+        setError("Please enter some text first.");
         return;
       }
 
-
-      const data =
-        buildHuffmanTree(input);
+      const data = buildHuffmanTree(input);
 
       if (!data) {
-        setError(
-          "Unable to build Huffman tree."
-        );
+        setError("Unable to build Huffman tree.");
         return;
       }
 
-
-      const encoded =
-        encodeHuffman(
-          input,
-          data.codes
-        );
-
+      const encoded = encodeHuffman(input, data.codes);
 
       setHuffmanData(data);
-
-      setCodeTable(
-        formatCodeTable(data.codes)
-      );
-
+      setCodeTable(formatCodeTable(data.codes));
       setOutput(encoded);
-
       return;
     }
-
-
-    /* ---------------- DECODE ---------------- */
 
     if (!input.trim()) {
       setOutput("");
-
-      setError(
-        "Please enter Huffman binary data."
-      );
-
+      setError("Please enter Huffman binary data.");
       return;
     }
 
-
-    const codes =
-      parseCodeTable(codeTable);
-
+    const codes = parseCodeTable(codeTable);
 
     if (!codes) {
-
-      setError(
-        "Please enter a valid Huffman code table."
-      );
-
+      setError("Please enter a valid Huffman code table.");
       return;
     }
 
-
-    const decoded =
-      decodeHuffman(
-        input.trim(),
-        codes
-      );
-
+    const decoded = decodeHuffman(input.trim(), codes);
 
     if (decoded === null) {
-
-      setError(
-        "Invalid Huffman binary or code table."
-      );
-
+      setError("Invalid Huffman binary or code table.");
       return;
     }
-
 
     setOutput(decoded);
   }
 
-
-  /* =======================================================
-     CHANGE ALGORITHM
-     ======================================================= */
-
   function handleAlgorithmChange(name) {
-
     setAlgorithm(name);
-
     setInput("");
     setOutput("");
     setCodeTable("");
@@ -398,25 +400,10 @@ export default function App() {
     }
   }
 
-
-  /* =======================================================
-     CHANGE MODE
-     ======================================================= */
-
   function handleModeChange(newMode) {
-
-    // IMPORTANT:
-    // We do NOT clear input/output/codeTable here.
-
     setMode(newMode);
-
     setError("");
   }
-
-
-  /* =======================================================
-     ALGORITHM LIST
-     ======================================================= */
 
   const algorithms = [
     "Huffman",
@@ -427,183 +414,77 @@ export default function App() {
     "Algorithm E",
   ];
 
-
-  /* =======================================================
-     UI
-     ======================================================= */
-
   return (
     <div className="app">
-
-      {/* =================================================
-          SIDEBAR
-          ================================================= */}
-
       <aside className="sidebar">
-
         <div className="brand">
-
-          <div className="brand-mark">
-            E
-          </div>
-
+          <div className="brand-mark">E</div>
           <div className="brand-text">
-
-            <h1>
-              Encryptr
-            </h1>
-
-            <p>
-              by Istiak
-            </p>
-
+            <h1>Encryptr</h1>
+            <p>by Istiak</p>
           </div>
-
         </div>
 
-
-        <div className="menu-title">
-          Algorithms
-        </div>
-
+        <div className="menu-title">Algorithms</div>
 
         <nav className="menu">
-
           {algorithms.map((name) => (
-
             <button
               key={name}
-              className={
-                algorithm === name
-                  ? "active"
-                  : ""
-              }
-              onClick={() =>
-                handleAlgorithmChange(name)
-              }
+              className={algorithm === name ? "active" : ""}
+              onClick={() => handleAlgorithmChange(name)}
             >
               {name}
             </button>
-
           ))}
-
         </nav>
-
       </aside>
 
-
-      {/* =================================================
-          MAIN CONTENT
-          ================================================= */}
-
       <main className="main-content">
-
         <div className="main-inner">
-
-          {/* PAGE HEADER */}
-
           <header className="page-header">
-
             <div>
-
-              <h2>
-                {algorithm}
-              </h2>
-
-              <p>
-                Encode and decode your data using
-                the selected algorithm.
-              </p>
-
+              <h2>{algorithm}</h2>
+              <p>Encode and decode your data using the selected algorithm.</p>
             </div>
-
           </header>
 
-
-          {/* =================================================
-              PLACEHOLDER ALGORITHMS
-              ================================================= */}
-
           {algorithm !== "Huffman" ? (
-
-            <AlgorithmPlaceholder
-              name={algorithm}
-            />
-
+            <AlgorithmPlaceholder name={algorithm} />
           ) : (
-
             <>
-
-              {/* =================================================
-                  ENCODE / DECODE AREA
-                  ================================================= */}
-
               {mode === "encode" ? (
-
-                /* ================================
-                   ENCODE LAYOUT
-                   ================================ */
-
                 <section className="workspace">
-
-                  {/* INPUT */}
-
                   <div className="panel">
-
                     <div className="panel-header">
-
                       <div>
-
-                        <div className="panel-title">
-                          Input
-                        </div>
-
+                        <div className="panel-title">Input</div>
                         <div className="panel-subtitle">
                           Enter the text you want to encode.
                         </div>
-
                       </div>
 
-
                       <div className="mode-switch">
-
                         <button
                           className="active"
-                          onClick={() =>
-                            handleModeChange("encode")
-                          }
+                          onClick={() => handleModeChange("encode")}
                         >
                           Encode
                         </button>
-
-                        <button
-                          onClick={() =>
-                            handleModeChange("decode")
-                          }
-                        >
+                        <button onClick={() => handleModeChange("decode")}>
                           Decode
                         </button>
-
                       </div>
-
                     </div>
-
 
                     <textarea
                       value={input}
-                      onChange={(e) =>
-                        setInput(e.target.value)
-                      }
+                      onChange={(e) => setInput(e.target.value)}
                       placeholder="Type or paste your text here..."
                     />
-
                   </div>
 
-
-                  {/* PROCESS */}
-
                   <div className="process-area">
-
                     <button
                       className="process-button"
                       onClick={handleProcess}
@@ -611,159 +492,82 @@ export default function App() {
                     >
                       →
                     </button>
-
                   </div>
 
-
-                  {/* OUTPUT */}
-
                   <div className="panel">
-
                     <div className="panel-header">
-
                       <div>
-
-                        <div className="panel-title">
-                          Output
-                        </div>
-
+                        <div className="panel-title">Output</div>
                         <div className="panel-subtitle">
                           Generated Huffman binary.
                         </div>
-
                       </div>
-
                     </div>
-
 
                     <textarea
                       value={output}
                       readOnly
                       placeholder="Your encoded result will appear here..."
                     />
-
                   </div>
-
                 </section>
-
               ) : (
-
-                /* ================================
-                   DECODE LAYOUT
-                   ================================ */
-
                 <section
                   className="workspace"
                   style={{
-                    gridTemplateColumns:
-                      "minmax(0, 1fr) 74px minmax(0, 1fr)",
+                    gridTemplateColumns: "minmax(0, 1fr) 74px minmax(0, 1fr)",
                   }}
                 >
-
-                  {/* CODE TABLE */}
-
                   <div
                     className="panel"
-                    style={{
-                      gridColumn:
-                        "1 / -1",
-                      minHeight:
-                        "260px",
-                    }}
+                    style={{ gridColumn: "1 / -1", minHeight: "260px" }}
                   >
-
                     <div className="panel-header">
-
                       <div>
-
-                        <div className="panel-title">
-                          Huffman Code Table
-                        </div>
-
+                        <div className="panel-title">Huffman Code Table</div>
                         <div className="panel-subtitle">
-                          Enter one character and its
-                          binary code per line.
+                          Enter one character and its binary code per line.
                         </div>
-
                       </div>
 
-
                       <div className="mode-switch">
-
-                        <button
-                          onClick={() =>
-                            handleModeChange("encode")
-                          }
-                        >
+                        <button onClick={() => handleModeChange("encode")}>
                           Encode
                         </button>
-
                         <button
                           className="active"
-                          onClick={() =>
-                            handleModeChange("decode")
-                          }
+                          onClick={() => handleModeChange("decode")}
                         >
                           Decode
                         </button>
-
                       </div>
-
                     </div>
-
 
                     <textarea
                       value={codeTable}
-                      onChange={(e) =>
-                        setCodeTable(e.target.value)
-                      }
-                      placeholder={`Example:
-a: 0
-b: 10
-c: 110
-d: 111
-SPACE: 100`}
+                      onChange={(e) => setCodeTable(e.target.value)}
+                      placeholder={`Example:\na: 0\nb: 10\nc: 110\nd: 111\nSPACE: 100`}
                     />
-
                   </div>
 
-
-                  {/* BINARY INPUT */}
-
                   <div className="panel">
-
                     <div className="panel-header">
-
                       <div>
-
-                        <div className="panel-title">
-                          Binary Input
-                        </div>
-
+                        <div className="panel-title">Binary Input</div>
                         <div className="panel-subtitle">
                           Enter the Huffman encoded data.
                         </div>
-
                       </div>
-
                     </div>
-
 
                     <textarea
                       value={input}
-                      onChange={(e) =>
-                        setInput(e.target.value)
-                      }
+                      onChange={(e) => setInput(e.target.value)}
                       placeholder="Example: 010110111..."
                     />
-
                   </div>
 
-
-                  {/* PROCESS */}
-
                   <div className="process-area">
-
                     <button
                       className="process-button"
                       onClick={handleProcess}
@@ -771,244 +575,101 @@ SPACE: 100`}
                     >
                       →
                     </button>
-
                   </div>
 
-
-                  {/* DECODED OUTPUT */}
-
                   <div className="panel">
-
                     <div className="panel-header">
-
                       <div>
-
-                        <div className="panel-title">
-                          Decoded Output
-                        </div>
-
-                        <div className="panel-subtitle">
-                          Original text.
-                        </div>
-
+                        <div className="panel-title">Decoded Output</div>
+                        <div className="panel-subtitle">Original text.</div>
                       </div>
-
                     </div>
-
 
                     <textarea
                       value={output}
                       readOnly
                       placeholder="Your decoded text will appear here..."
                     />
-
                   </div>
-
                 </section>
-
               )}
 
-
-              {/* ERROR */}
-
-              {error && (
-                <div className="error">
-                  {error}
-                </div>
-              )}
-
-
-              {/* =================================================
-                  INFORMATION
-                  ================================================= */}
+              {error && <div className="error">{error}</div>}
 
               <section className="info-grid">
-
                 <div className="info-card">
-
-                  <h3>
-                    Algorithm
-                  </h3>
-
-                  <p>
-                    Huffman Coding
-                  </p>
-
+                  <h3>Algorithm</h3>
+                  <p>Huffman Coding</p>
                 </div>
 
-
                 <div className="info-card">
-
-                  <h3>
-                    Mode
-                  </h3>
-
-                  <p>
-                    {mode === "encode"
-                      ? "Encoding"
-                      : "Decoding"}
-                  </p>
-
+                  <h3>Mode</h3>
+                  <p>{mode === "encode" ? "Encoding" : "Decoding"}</p>
                 </div>
 
-
                 <div className="info-card">
-
-                  <h3>
-                    Characters
-                  </h3>
-
-                  <p>
-                    {input.length}
-                  </p>
-
+                  <h3>Characters</h3>
+                  <p>{input.length}</p>
                 </div>
-
               </section>
 
-
-              {/* =================================================
-                  CODE TABLE
-                  ================================================= */}
-
               {huffmanData && (
                 <section className="section">
-
                   <div className="section-header">
-
                     <div>
-
-                      <h2>
-                        Generated Huffman Code Table
-                      </h2>
-
-                      <p>
-                        Character frequencies and
-                        generated binary codes.
-                      </p>
-
+                      <h2>Generated Huffman Code Table</h2>
+                      <p>Character frequencies and generated binary codes.</p>
                     </div>
-
                   </div>
-
 
                   <div className="table-container">
-
                     <table className="code-table">
-
                       <thead>
-
                         <tr>
-                          <th>
-                            Character
-                          </th>
-
-                          <th>
-                            Frequency
-                          </th>
-
-                          <th>
-                            Code
-                          </th>
+                          <th>Character</th>
+                          <th>Frequency</th>
+                          <th>Code</th>
                         </tr>
-
                       </thead>
 
-
                       <tbody>
-
-                        {Object.entries(
-                          huffmanData.codes
-                        ).map(
+                        {Object.entries(huffmanData.codes).map(
                           ([char, code]) => (
-
                             <tr key={char}>
-
+                              <td>{char === " " ? "SPACE" : char}</td>
+                              <td>{huffmanData.frequencies[char]}</td>
                               <td>
-                                {char === " "
-                                  ? "SPACE"
-                                  : char}
+                                <span className="code">{code}</span>
                               </td>
-
-                              <td>
-                                {
-                                  huffmanData
-                                    .frequencies[
-                                      char
-                                    ]
-                                }
-                              </td>
-
-                              <td>
-
-                                <span className="code">
-                                  {code}
-                                </span>
-
-                              </td>
-
                             </tr>
-
                           )
                         )}
-
                       </tbody>
-
                     </table>
-
                   </div>
-
                 </section>
               )}
-
-
-              {/* =================================================
-                  HUFFMAN TREE
-                  ================================================= */}
 
               {huffmanData && (
                 <section className="section">
-
                   <div className="section-header">
-
                     <div>
-
-                      <h2>
-                        Huffman Tree
-                      </h2>
-
+                      <h2>Huffman Tree</h2>
                       <p>
-                        Visual representation of the
-                        generated Huffman structure.
+                        Visual representation of the generated Huffman structure.
                       </p>
-
                     </div>
-
                   </div>
-
 
                   <div className="tree-container">
-
-                    <div className="huffman-tree">
-
-                      <HuffmanTree
-                        node={huffmanData.root}
-                      />
-
-                    </div>
-
+                    <HuffmanTreeVisualizer root={huffmanData.root} />
                   </div>
-
                 </section>
               )}
-
             </>
           )}
-
         </div>
-
       </main>
-
     </div>
   );
 }
