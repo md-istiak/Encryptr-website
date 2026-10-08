@@ -1,4 +1,3 @@
-```jsx
 import { useState } from "react";
 import "./App.css";
 function buildHuffmanTree(text) {
@@ -629,4 +628,3 @@ SPACE: 100`}
     </div>
   );
 }
-```
