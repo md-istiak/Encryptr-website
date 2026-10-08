@@ -179,6 +179,10 @@ function formatCodeTable(codes) {
    HUFFMAN TREE
    ========================================================= */
 
+/* =========================================================
+   HUFFMAN TREE
+   ========================================================= */
+
 function HuffmanTree({ node }) {
   if (!node) return null;
 
@@ -186,69 +190,39 @@ function HuffmanTree({ node }) {
 
   return (
     <div className="tree-node">
-
-      <div className={`tree-box ${isLeaf ? "leaf" : ""}`}>
-
+      <div className={`tree-box ${isLeaf ? "leaf" : "internal"}`}>
         {isLeaf ? (
           <>
             <span className="tree-character">
-              {node.char === " "
-                ? "SPACE"
-                : node.char}
+              {node.char === " " ? "SPACE" : node.char}
             </span>
-
-            <span className="tree-frequency">
-              {node.frequency}
-            </span>
+            <span className="tree-frequency">{node.frequency}</span>
           </>
         ) : (
-          <span className="tree-frequency">
-            {node.frequency}
-          </span>
+          <span className="tree-frequency">{node.frequency}</span>
         )}
-
       </div>
-
 
       {!isLeaf && (
         <div className="tree-children">
-
           {node.left && (
-            <div className="tree-branch">
-
-              <span className="branch-label">
-                0
-              </span>
-
-              <HuffmanTree
-                node={node.left}
-              />
-
+            <div className="tree-branch branch-left">
+              <span className="branch-label">0</span>
+              <HuffmanTree node={node.left} />
             </div>
           )}
-
 
           {node.right && (
-            <div className="tree-branch">
-
-              <span className="branch-label">
-                1
-              </span>
-
-              <HuffmanTree
-                node={node.right}
-              />
-
+            <div className="tree-branch branch-right">
+              <span className="branch-label">1</span>
+              <HuffmanTree node={node.right} />
             </div>
           )}
-
         </div>
       )}
-
     </div>
   );
 }
-
 
 /* =========================================================
    PLACEHOLDER ALGORITHMS

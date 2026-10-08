@@ -789,29 +789,32 @@ textarea:focus {
    HUFFMAN TREE
    ========================================================= */
 
+/* =========================================================
+   HUFFMAN TREE — Refined & Scaled
+   ========================================================= */
+
 .tree-container {
   width: 100%;
   overflow-x: auto;
-  padding: 35px 25px;
+  padding: 40px 30px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background:
-    radial-gradient(
-      circle at center,
-      rgba(118, 181, 230, 0.08),
-      transparent 55%
-    ),
-    white;
+    radial-gradient(circle at 50% 0%, rgba(53, 168, 107, 0.05), transparent 70%),
+    radial-gradient(circle at 50% 100%, rgba(118, 181, 230, 0.06), transparent 70%),
+    #ffffff;
   box-shadow: var(--shadow-sm);
+  scroll-behavior: smooth;
 }
 
 .huffman-tree {
   display: flex;
   justify-content: center;
   min-width: max-content;
-  padding: 15px;
+  padding: 20px 10px;
 }
 
+/* Individual Node Wrapper */
 .tree-node {
   position: relative;
   display: flex;
@@ -819,106 +822,155 @@ textarea:focus {
   align-items: center;
 }
 
+/* Base Node Box */
 .tree-box {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 58px;
-  min-height: 50px;
-  padding: 7px 10px;
+  gap: 2px;
+  
+  /* Fixed proportional dimensions */
+  min-width: 54px;
+  height: 54px;
+  padding: 6px 12px;
+  
   border: 2px solid var(--green);
-  border-radius: 10px;
-  background: white;
+  border-radius: 50%; /* Internal nodes render as smooth circles */
+  background: #ffffff;
   color: var(--text);
-  box-shadow: var(--shadow-sm);
-  font-size: 0.82rem;
-  font-weight: 700;
-  z-index: 2; /* Ensures node box renders above connector lines */
+  box-shadow: 0 4px 12px rgba(53, 168, 107, 0.12);
+  z-index: 5;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
+.tree-box:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 18px rgba(53, 168, 107, 0.22);
+}
+
+/* Internal Node Styling */
+.tree-box.internal {
+  border-color: var(--green);
+  background: #ffffff;
+}
+
+.tree-box.internal .tree-frequency {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--green-dark);
+}
+
+/* Leaf Node Styling */
 .tree-box.leaf {
-  border-color: var(--blue);
-  background: var(--blue-soft);
+  min-width: 68px;
+  height: 58px;
+  border-radius: 14px; /* Rounded rectangle for leaves */
+  border-color: var(--blue-dark);
+  background: linear-gradient(135deg, #f0f8ff 0%, #e1f1ff 100%);
+  box-shadow: 0 4px 12px rgba(57, 122, 169, 0.15);
 }
 
-.tree-frequency {
-  color: var(--muted);
-  font-size: 0.72rem;
+.tree-box.leaf:hover {
+  box-shadow: 0 6px 18px rgba(57, 122, 169, 0.25);
 }
 
 .tree-character {
-  color: var(--text);
-  font-size: 0.9rem;
+  color: var(--blue-dark);
+  font-size: 0.95rem;
   font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
 }
 
+.tree-box.leaf .tree-frequency {
+  color: #557285;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+/* Tree Children Layout */
 .tree-children {
   position: relative;
   display: flex;
   justify-content: center;
-  padding-top: 28px;
+  padding-top: 34px;
+  margin-top: 2px;
 }
 
-/* Horizontal line connecting left and right children branches */
-.tree-children::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 25%;
-  right: 25%;
-  height: 2px;
-  background: #b9cec2;
-}
-
-/* Vertical line coming down from the parent node to horizontal bar */
+/* Top Stem coming out from parent node */
 .tree-children::after {
   content: "";
   position: absolute;
-  top: -10px;
+  top: -2px;
   left: 50%;
   width: 2px;
-  height: 10px;
-  background: #b9cec2;
+  height: 16px;
+  background: #acc2b5;
   transform: translateX(-50%);
+  z-index: 1;
 }
 
-/* For single child node edge-cases */
-.tree-children:has(> .tree-branch:only-child)::before {
-  display: none;
+/* Horizontal connector bar linking left & right branches */
+.tree-children::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: 25%;
+  right: 25%;
+  height: 2px;
+  background: #acc2b5;
+  z-index: 1;
 }
 
+/* Individual Branch Container */
 .tree-branch {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 18px;
 }
 
-/* Vertical line connecting horizontal bar down into child node */
+/* Vertical line down to child node */
 .tree-branch::before {
   content: "";
   position: absolute;
-  top: 0;
+  top: -20px;
   left: 50%;
   width: 2px;
-  height: 28px;
-  background: #b9cec2;
+  height: 20px;
+  background: #acc2b5;
   transform: translateX(-50%);
+  z-index: 1;
 }
 
+/* Binary Edge Labels (0 / 1) */
 .branch-label {
   position: absolute;
-  top: 4px;
-  padding: 0 5px;
-  background: white;
+  top: -28px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid #c2d6cb;
+  background: #ffffff;
   color: var(--green-dark);
-  font-family: monospace;
+  font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 0.72rem;
   font-weight: 800;
-  border-radius: 4px;
-  z-index: 3;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  z-index: 6;
+}
+
+.branch-left .branch-label {
+  color: var(--green-dark);
+}
+
+.branch-right .branch-label {
+  color: var(--blue-dark);
+  border-color: #bcd9f0;
 }
 
 /* =========================================================
